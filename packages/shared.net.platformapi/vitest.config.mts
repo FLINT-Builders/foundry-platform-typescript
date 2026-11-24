@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
+import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Generated methods import the package name. Point it at source so
+      // these tests exercise the helper without a prior transpile.
+      "@osdk/shared.net.platformapi": fileURLToPath(
+        new URL("./src/index.ts", import.meta.url),
+      ),
+    },
+  },
   test: {
     pool: "forks",
     exclude: [...configDefaults.exclude, "**/build/**/*"],
