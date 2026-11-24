@@ -14,9 +14,20 @@
  * limitations under the License.
  */
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
 
+const packageRoot = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Generated callers import the package name. Tests load the source
+      // that a fix will change, rather than a stale build.
+      "@osdk/shared.net.platformapi": path.join(packageRoot, "src/index.ts"),
+    },
+  },
   test: {
     pool: "forks",
     exclude: [...configDefaults.exclude, "**/build/**/*"],
