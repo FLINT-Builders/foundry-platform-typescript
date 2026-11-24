@@ -146,26 +146,7 @@ async function apiFetch(
   // error status codes are not thrown by fetch automatically,
   // we have to look at the ok property and behave accordingly
   if (!response.ok) {
-    try {
-      const convertedError = await response.json();
-      return new PalantirApiError(
-        convertedError.message,
-        convertedError.errorName,
-        convertedError.errorCode,
-        convertedError.errorDescription,
-        response.status,
-        convertedError.errorInstanceId,
-        convertedError.parameters,
-      );
-    } catch (e) {
-      if (e instanceof Error) {
-        return new UnknownError(e.message, "UNKNOWN");
-      }
-      return new UnknownError(
-        "Unable to parse error response",
-        "UNKNOWN",
-      );
-    }
+    throw await toApiError(response);
   }
 
   // Do not return anything if its a 204. Do not parse either!
@@ -182,6 +163,34 @@ async function apiFetch(
   }
 
   return response;
+}
+
+async function toApiError(
+  response: Response,
+): Promise<PalantirApiError | UnknownError> {
+  let convertedError: any;
+  try {
+    convertedError = await response.json();
+  } catch (e) {
+    if (e instanceof Error) {
+      return new UnknownError(e.message, "UNKNOWN");
+    }
+    return new UnknownError("Unable to parse error response", "UNKNOWN");
+  }
+
+  if (convertedError == null || typeof convertedError !== "object") {
+    return new UnknownError("Unable to parse error response", "UNKNOWN");
+  }
+
+  return new PalantirApiError(
+    convertedError.message,
+    convertedError.errorName,
+    convertedError.errorCode,
+    convertedError.errorDescription,
+    response.status,
+    convertedError.errorInstanceId,
+    convertedError.parameters,
+  );
 }
 
 export function parseUrl(baseUrl: string, endpointPath: string): URL {
