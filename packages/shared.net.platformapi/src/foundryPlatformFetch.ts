@@ -53,7 +53,7 @@ export async function foundryPlatformFetch<
 ): Promise<Awaited<ReturnType<NonNullable<X["__funcBrand"]>>>> {
   const path = origPath.replace(
     /\{([^}]+)\}/g,
-    () => encodeURIComponent((args as any[]).shift()),
+    () => encodePathParameter((args as any[]).shift()),
   );
 
   const body = (flags! & 1) ? args.shift() : undefined;
@@ -184,7 +184,35 @@ async function apiFetch(
   return response;
 }
 
+// The URL parser treats ".", "..", and their percent-encoded forms
+// (case-insensitive "%2e") as dot segments and resolves them, which would
+// send the request to a different route than the one the template names.
+const DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
+
+function encodePathParameter(value: unknown): string {
+  const raw = String(value);
+  if (raw === "" || DOT_SEGMENT.test(raw)) {
+    throw new Error(
+      "Invalid path parameter: must not be empty or a dot segment",
+    );
+  }
+  return encodeURIComponent(raw);
+}
+
+function assertNoDotSegments(endpointPath: string): void {
+  if (!endpointPath.startsWith("/")) {
+    throw new Error(`Invalid endpoint path: must start with "/"`);
+  }
+  // The URL parser strips ASCII tab and newline characters, treats "\" as
+  // "/" for http(s) URLs, and ends the path at "?" or "#".
+  const pathOnly = endpointPath.replace(/[\t\n\r]/g, "").split(/[?#]/, 1)[0];
+  if (pathOnly.split(/[\\/]/).some(segment => DOT_SEGMENT.test(segment))) {
+    throw new Error(`Invalid endpoint path: must not contain dot segments`);
+  }
+}
+
 export function parseUrl(baseUrl: string, endpointPath: string): URL {
+  assertNoDotSegments(endpointPath);
   baseUrl += baseUrl.endsWith("/") ? "" : "/";
   return new URL(`api${endpointPath}`, baseUrl);
 }
